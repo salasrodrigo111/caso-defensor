@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Group, CaseType } from '@/types';
@@ -25,8 +24,8 @@ const GruposPage = () => {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [formData, setFormData] = useState({
     name: '',
-    case_type_id: '',
-    is_active: true
+    caseTypeId: '',
+    isActive: true
   });
   
   useEffect(() => {
@@ -63,16 +62,16 @@ const GruposPage = () => {
       setSelectedGroup(grupo);
       setFormData({
         name: grupo.name,
-        case_type_id: grupo.case_type_id || '',
-        is_active: grupo.is_active || true
+        caseTypeId: grupo.caseTypeId || '',
+        isActive: grupo.isActive || true
       });
     } else {
       setIsEditing(false);
       setSelectedGroup(null);
       setFormData({
         name: '',
-        case_type_id: '',
-        is_active: true
+        caseTypeId: '',
+        isActive: true
       });
     }
     setIsDialogOpen(true);
@@ -96,8 +95,11 @@ const GruposPage = () => {
       if (!currentUser?.defensoria) return;
       
       const groupData = {
-        ...formData,
-        defensoria: currentUser.defensoria
+        name: formData.name,
+        caseTypeId: formData.caseTypeId,
+        isActive: formData.isActive,
+        defensoria: currentUser.defensoria,
+        members: [] // Inicialmente sin miembros
       };
       
       if (isEditing && selectedGroup) {
@@ -107,7 +109,7 @@ const GruposPage = () => {
           description: 'El grupo ha sido actualizado exitosamente.',
         });
       } else {
-        await createGroup(groupData as Omit<Group, 'id'>);
+        await createGroup(groupData);
         toast({
           title: 'Grupo creado',
           description: 'El grupo ha sido creado exitosamente.',
@@ -131,7 +133,7 @@ const GruposPage = () => {
   
   const toggleGroupStatus = async (group: Group) => {
     try {
-      await updateGroup(group.id, { is_active: !group.is_active });
+      await updateGroup(group.id, { isActive: !group.isActive });
       
       if (currentUser?.defensoria) {
         const gruposData = await getGroups(currentUser.defensoria);
@@ -139,8 +141,8 @@ const GruposPage = () => {
       }
       
       toast({
-        title: group.is_active ? 'Grupo desactivado' : 'Grupo activado',
-        description: `El grupo ha sido ${group.is_active ? 'desactivado' : 'activado'} exitosamente.`,
+        title: group.isActive ? 'Grupo desactivado' : 'Grupo activado',
+        description: `El grupo ha sido ${group.isActive ? 'desactivado' : 'activado'} exitosamente.`,
       });
     } catch (error) {
       console.error('Error updating group status:', error);
@@ -155,33 +157,37 @@ const GruposPage = () => {
   const columns = [
     { key: 'name', header: 'Nombre' },
     { 
-      key: 'case_type_id', 
+      key: 'caseTypeId', 
       header: 'Tipo de Proceso',
-      cell: (row: any) => {
-        const caseType = tiposProceso.find(ct => ct.id === row.case_type_id);
+      cell: (row: Group) => {
+        const caseType = tiposProceso.find(ct => ct.id === row.caseTypeId);
         return caseType ? caseType.name : 'No asignado';
       }
     },
-    { key: 'members', header: 'Miembros', cell: () => '0' }, // Pendiente de implementar
     { 
-      key: 'is_active',
+      key: 'members', 
+      header: 'Miembros', 
+      cell: (row: Group) => row.members ? row.members.length : '0' 
+    },
+    { 
+      key: 'isActive',
       header: 'Estado',
-      cell: (row: any) => (
-        <span className={`px-2 py-1 rounded-full text-xs ${row.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-          {row.is_active ? 'Activo' : 'Inactivo'}
+      cell: (row: Group) => (
+        <span className={`px-2 py-1 rounded-full text-xs ${row.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+          {row.isActive ? 'Activo' : 'Inactivo'}
         </span>
       ),
     },
     { 
       key: 'actions',
       header: 'Acciones',
-      cell: (row: any) => (
+      cell: (row: Group) => (
         <div className="flex space-x-2">
           <button 
             className="text-sm text-blue-600 hover:underline"
             onClick={() => toggleGroupStatus(row)}
           >
-            {row.is_active ? 'Desactivar' : 'Activar'}
+            {row.isActive ? 'Desactivar' : 'Activar'}
           </button>
           <button 
             className="text-sm text-blue-600 hover:underline"
@@ -255,11 +261,11 @@ const GruposPage = () => {
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="case_type_id" className="text-sm font-medium">Tipo de proceso</label>
+              <label htmlFor="caseTypeId" className="text-sm font-medium">Tipo de proceso</label>
               <select
-                id="case_type_id"
-                name="case_type_id"
-                value={formData.case_type_id}
+                id="caseTypeId"
+                name="caseTypeId"
+                value={formData.caseTypeId}
                 onChange={handleInputChange}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -275,13 +281,13 @@ const GruposPage = () => {
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
-                id="is_active"
-                name="is_active"
-                checked={formData.is_active}
-                onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                id="isActive"
+                name="isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
               />
-              <label htmlFor="is_active" className="text-sm font-medium">
+              <label htmlFor="isActive" className="text-sm font-medium">
                 Grupo activo
               </label>
             </div>

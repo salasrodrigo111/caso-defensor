@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Case } from '@/types';
@@ -10,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { Select } from '@/components/ui/select';
 
 const ExpedientesPage = () => {
   const { currentUser } = useAuth();
@@ -81,45 +79,49 @@ const ExpedientesPage = () => {
   };
   
   const columns = [
-    { key: 'case_number', header: 'Número' },
+    { key: 'caseNumber', header: 'Número' },
     { 
       key: 'tipo',
       header: 'Tipo',
-      cell: (row: any) => row.case_types?.name || 'Sin tipo'
+      cell: (row: Case) => {
+        // Aquí necesitamos acceder al nombre del tipo de caso
+        // Esto deberá ser adaptado según cómo esté estructurada la respuesta
+        return 'Sin tipo'; // Esto debe ser actualizado para mostrar el tipo real
+      }
     },
     { 
-      key: 'assigned_to_id',
+      key: 'assignedToId',
       header: 'Asignado a',
-      cell: (row: any) => {
-        const abogado = abogados.find(a => a.id === row.assigned_to_id);
+      cell: (row: Case) => {
+        const abogado = abogados.find(a => a.id === row.assignedToId);
         return abogado ? abogado.name : 'Sin asignar';
       } 
     },
-    { key: 'created_at', header: 'Fecha de ingreso', cell: (row: any) => new Date(row.created_at).toLocaleDateString() },
+    { key: 'createdAt', header: 'Fecha de ingreso', cell: (row: Case) => new Date(row.createdAt).toLocaleDateString() },
     { 
       key: 'estado',
       header: 'Estado',
-      cell: (row: any) => (
-        <span className={`px-2 py-1 rounded-full text-xs ${row.is_taken ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-          {row.is_taken ? 'Tomado' : 'Pendiente'}
+      cell: (row: Case) => (
+        <span className={`px-2 py-1 rounded-full text-xs ${row.isTaken ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+          {row.isTaken ? 'Tomado' : 'Pendiente'}
         </span>
       ),
     },
     { 
       key: 'actions',
       header: 'Acciones',
-      cell: (row: any) => (
+      cell: (row: Case) => (
         <div className="flex space-x-2">
           <button 
             className="text-sm text-blue-600 hover:underline"
             onClick={() => toast({ 
               title: "Ver expediente", 
-              description: `Expediente ${row.case_number}` 
+              description: `Expediente ${row.caseNumber}` 
             })}
           >
             Ver
           </button>
-          {!row.is_taken && (
+          {!row.isTaken && (
             <button 
               className="text-sm text-blue-600 hover:underline"
               onClick={() => handleReasignarClick(row)}
@@ -167,7 +169,7 @@ const ExpedientesPage = () => {
                 data={expedientes}
                 columns={columns}
                 searchable={true}
-                searchKeys={['case_number', 'case_types.name']}
+                searchKeys={['caseNumber']}
               />
             )}
           </CardContent>
@@ -179,7 +181,7 @@ const ExpedientesPage = () => {
           <DialogHeader>
             <DialogTitle>Reasignar Expediente</DialogTitle>
             <DialogDescription>
-              Seleccione un abogado para reasignar el expediente {selectedExpediente?.case_number}
+              Seleccione un abogado para reasignar el expediente {selectedExpediente?.caseNumber}
             </DialogDescription>
           </DialogHeader>
           

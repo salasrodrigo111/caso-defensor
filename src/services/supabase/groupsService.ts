@@ -1,6 +1,19 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Group } from '@/types';
+import { Group, SupabaseGroup } from '@/types';
+
+// Función auxiliar para convertir un grupo de Supabase a nuestro tipo Group
+const mapSupabaseGroupToGroup = async (supabaseGroup: SupabaseGroup): Promise<Group> => {
+  const members = await getGroupMembers(supabaseGroup.id);
+  
+  return {
+    id: supabaseGroup.id,
+    name: supabaseGroup.name,
+    caseTypeId: supabaseGroup.case_type_id || '',
+    isActive: supabaseGroup.is_active || false,
+    defensoria: supabaseGroup.defensoria,
+    members: members
+  };
+};
 
 export const getGroups = async (defensoria: string): Promise<Group[]> => {
   const { data, error } = await supabase
@@ -13,13 +26,27 @@ export const getGroups = async (defensoria: string): Promise<Group[]> => {
     throw error;
   }
 
-  return data || [];
+  // Convertir los datos de Supabase a nuestro tipo Group
+  const groups: Group[] = [];
+  for (const group of (data as SupabaseGroup[] || [])) {
+    groups.push(await mapSupabaseGroupToGroup(group));
+  }
+  
+  return groups;
 };
 
 export const createGroup = async (group: Omit<Group, 'id'>): Promise<Group> => {
+  // Convertir de nuestro tipo a formato Supabase
+  const supabaseGroupData = {
+    name: group.name,
+    case_type_id: group.caseTypeId,
+    is_active: group.isActive,
+    defensoria: group.defensoria
+  };
+
   const { data, error } = await supabase
     .from('groups')
-    .insert(group)
+    .insert(supabaseGroupData)
     .select()
     .single();
 
@@ -28,13 +55,20 @@ export const createGroup = async (group: Omit<Group, 'id'>): Promise<Group> => {
     throw error;
   }
 
-  return data;
+  return mapSupabaseGroupToGroup(data as SupabaseGroup);
 };
 
 export const updateGroup = async (id: string, updates: Partial<Group>): Promise<Group> => {
+  // Convertir de nuestro tipo a formato Supabase
+  const supabaseUpdates: any = {};
+  if (updates.name !== undefined) supabaseUpdates.name = updates.name;
+  if (updates.caseTypeId !== undefined) supabaseUpdates.case_type_id = updates.caseTypeId;
+  if (updates.isActive !== undefined) supabaseUpdates.is_active = updates.isActive;
+  if (updates.defensoria !== undefined) supabaseUpdates.defensoria = updates.defensoria;
+
   const { data, error } = await supabase
     .from('groups')
-    .update(updates)
+    .update(supabaseUpdates)
     .eq('id', id)
     .select()
     .single();
@@ -44,7 +78,7 @@ export const updateGroup = async (id: string, updates: Partial<Group>): Promise<
     throw error;
   }
 
-  return data;
+  return mapSupabaseGroupToGroup(data as SupabaseGroup);
 };
 
 export const deleteGroup = async (id: string): Promise<void> => {
