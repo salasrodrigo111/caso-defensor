@@ -15,6 +15,12 @@ import AbogadoDashboard from "./pages/abogado/AbogadoDashboard";
 import MostradorDashboard from "./pages/mostrador/MostradorDashboard";
 import NotFound from "./pages/NotFound";
 
+// Páginas del Defensor
+import ExpedientesPage from "./pages/defensor/ExpedientesPage";
+import GruposPage from "./pages/defensor/GruposPage";
+import AbogadosPage from "./pages/defensor/AbogadosPage";
+import TiposProcesoPage from "./pages/defensor/TiposProcesoPage";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -33,6 +39,10 @@ const App = () => (
             
             {/* Defensor routes */}
             <Route path="/defensor/dashboard" element={<DefensorDashboard />} />
+            <Route path="/defensor/expedientes" element={<ExpedientesPage />} />
+            <Route path="/defensor/grupos" element={<GruposPage />} />
+            <Route path="/defensor/abogados" element={<AbogadosPage />} />
+            <Route path="/defensor/tipos-procesos" element={<TiposProcesoPage />} />
             
             {/* Abogado routes */}
             <Route path="/abogado/dashboard" element={<AbogadoDashboard />} />

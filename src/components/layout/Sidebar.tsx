@@ -15,6 +15,9 @@ import {
   X,
   Building,
   UserCircle,
+  FolderOpen,
+  UserPlus,
+  ClipboardList
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -48,10 +51,10 @@ const Sidebar = () => {
   
   if (currentUser.role === 'defensor') {
     navItems.push(
-      { name: 'Expedientes', path: '/defensor/expedientes', icon: FileText, roles: ['defensor'] },
+      { name: 'Expedientes', path: '/defensor/expedientes', icon: FolderOpen, roles: ['defensor'] },
       { name: 'Grupos', path: '/defensor/grupos', icon: Users, roles: ['defensor'] },
-      { name: 'Abogados', path: '/defensor/abogados', icon: Briefcase, roles: ['defensor'] },
-      { name: 'Tipos de Procesos', path: '/defensor/tipos-procesos', icon: Briefcase, roles: ['defensor'] },
+      { name: 'Abogados', path: '/defensor/abogados', icon: UserPlus, roles: ['defensor'] },
+      { name: 'Tipos de Procesos', path: '/defensor/tipos-procesos', icon: ClipboardList, roles: ['defensor'] },
     );
   }
   

@@ -9,7 +9,171 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      case_type_groups: {
+        Row: {
+          case_type_id: string
+          defensoria: string
+          group_id: string
+          id: string
+          is_active: boolean | null
+        }
+        Insert: {
+          case_type_id: string
+          defensoria: string
+          group_id: string
+          id?: string
+          is_active?: boolean | null
+        }
+        Update: {
+          case_type_id?: string
+          defensoria?: string
+          group_id?: string
+          id?: string
+          is_active?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_type_groups_case_type_id_fkey"
+            columns: ["case_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_type_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_types: {
+        Row: {
+          defensoria: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          defensoria: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          defensoria?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      cases: {
+        Row: {
+          assigned_at: string | null
+          assigned_to_id: string | null
+          case_number: string
+          case_type_id: string | null
+          created_at: string
+          defensoria: string
+          id: string
+          is_taken: boolean | null
+          taken_at: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_to_id?: string | null
+          case_number: string
+          case_type_id?: string | null
+          created_at?: string
+          defensoria: string
+          id?: string
+          is_taken?: boolean | null
+          taken_at?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_to_id?: string | null
+          case_number?: string
+          case_type_id?: string | null
+          created_at?: string
+          defensoria?: string
+          id?: string
+          is_taken?: boolean | null
+          taken_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cases_case_type_id_fkey"
+            columns: ["case_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          case_type_id: string | null
+          defensoria: string
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          case_type_id?: string | null
+          defensoria: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          case_type_id?: string | null
+          defensoria?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groups_case_type_id_fkey"
+            columns: ["case_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
