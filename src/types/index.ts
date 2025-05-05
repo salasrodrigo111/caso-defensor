@@ -71,3 +71,19 @@ export interface Defensoria {
   description?: string;
   mostradores: string[]; // User IDs with mostrador role
 }
+
+// Nueva interfaz para manejar la relación de grupo-miembro
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  joinedAt: Date;
+}
+
+// Adaptar para lo que devuelve Supabase
+export interface SupabaseGroupMember {
+  id: string;
+  group_id: string;
+  user_id: string;
+  joined_at: string;
+}

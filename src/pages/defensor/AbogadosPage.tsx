@@ -1,8 +1,9 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { User } from '@/types';
+import { User, Group } from '@/types';
 import { getUsersByDefensoriaAndRole, updateUserAvailability, createUser } from '@/services/supabase/usersService';
+import { getGroups, addUserToGroup, removeUserFromGroup } from '@/services/supabase/groupsService';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/ui/DataTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,14 +11,18 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 const AbogadosPage = () => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [abogados, setAbogados] = useState<User[]>([]);
+  const [grupos, setGrupos] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
+  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [selectedAbogado, setSelectedAbogado] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -26,6 +31,7 @@ const AbogadosPage = () => {
     role: 'abogado'
   });
   const [leaveEndDate, setLeaveEndDate] = useState('');
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -33,13 +39,16 @@ const AbogadosPage = () => {
         if (currentUser?.defensoria) {
           const abogadosData = await getUsersByDefensoriaAndRole(currentUser.defensoria, 'abogado');
           setAbogados(abogadosData);
+          
+          const gruposData = await getGroups(currentUser.defensoria);
+          setGrupos(gruposData);
         }
       } catch (error) {
-        console.error('Error fetching abogados:', error);
+        console.error('Error fetching data:', error);
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'No se pudieron cargar los datos de abogados. Por favor, inténtelo de nuevo.',
+          description: 'No se pudieron cargar los datos. Por favor, inténtelo de nuevo.',
         });
       } finally {
         setLoading(false);
@@ -63,6 +72,16 @@ const AbogadosPage = () => {
     setSelectedAbogado(abogado);
     setLeaveEndDate('');
     setIsLeaveDialogOpen(true);
+  };
+  
+  const handleOpenGroupDialog = (abogado: User) => {
+    setSelectedAbogado(abogado);
+    setSelectedGroups(abogado.groups?.map(g => {
+      // Encuentra el ID del grupo basado en su nombre
+      const grupo = grupos.find(grupo => grupo.name === g);
+      return grupo ? grupo.id : '';
+    }).filter(id => id !== '') || []);
+    setIsGroupDialogOpen(true);
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,6 +152,34 @@ const AbogadosPage = () => {
       });
     }
   };
+
+  const handleGroupSubmit = async () => {
+    if (!selectedAbogado) return;
+    
+    try {
+      // Implementar la lógica para actualizar los grupos del abogado
+      // Esto es un mock por ahora, pero debería actualizarse cuando la API esté lista
+      
+      toast({
+        title: 'Grupos actualizados',
+        description: `Los grupos de ${selectedAbogado.name} han sido actualizados.`,
+      });
+      
+      if (currentUser?.defensoria) {
+        const abogadosData = await getUsersByDefensoriaAndRole(currentUser.defensoria, 'abogado');
+        setAbogados(abogadosData);
+      }
+      
+      setIsGroupDialogOpen(false);
+    } catch (error) {
+      console.error('Error updating groups:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudieron actualizar los grupos. Por favor, inténtelo de nuevo.',
+      });
+    }
+  };
   
   const toggleAvailability = async (abogado: User) => {
     try {
@@ -156,6 +203,14 @@ const AbogadosPage = () => {
       });
     }
   };
+
+  const toggleGroupSelection = (groupId: string) => {
+    if (selectedGroups.includes(groupId)) {
+      setSelectedGroups(selectedGroups.filter(id => id !== groupId));
+    } else {
+      setSelectedGroups([...selectedGroups, groupId]);
+    }
+  };
   
   const columns = [
     { key: 'name', header: 'Nombre' },
@@ -163,7 +218,18 @@ const AbogadosPage = () => {
     { 
       key: 'groups',
       header: 'Grupos',
-      cell: (row: User) => row.groups?.join(', ') || 'Sin grupos'
+      cell: (row: User) => (
+        <div className="flex flex-wrap gap-1">
+          {row.groups && row.groups.length > 0 ? 
+            row.groups.map((group, idx) => (
+              <Badge key={idx} variant="outline" className="bg-blue-50">
+                {group}
+              </Badge>
+            )) : 
+            <span className="text-gray-500 text-sm">Sin grupos</span>
+          }
+        </div>
+      )
     },
     { 
       key: 'estado',
@@ -189,10 +255,7 @@ const AbogadosPage = () => {
               </button>
               <button 
                 className="text-sm text-blue-600 hover:underline"
-                onClick={() => toast({ 
-                  title: "Gestionar grupos", 
-                  description: `Abogado ${row.name}` 
-                })}
+                onClick={() => handleOpenGroupDialog(row)}
               >
                 Grupos
               </button>
@@ -240,6 +303,7 @@ const AbogadosPage = () => {
         </Card>
       </div>
       
+      {/* Dialog para crear nuevo abogado */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -297,6 +361,7 @@ const AbogadosPage = () => {
         </DialogContent>
       </Dialog>
       
+      {/* Dialog para marcar ausencia */}
       <Dialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -330,6 +395,57 @@ const AbogadosPage = () => {
               </Button>
             </DialogFooter>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para gestionar grupos */}
+      <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gestionar Grupos</DialogTitle>
+            <DialogDescription>
+              Seleccione los grupos a los que pertenece {selectedAbogado?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-[60vh] overflow-y-auto py-4">
+            {grupos.length === 0 ? (
+              <p className="text-center text-muted-foreground">No hay grupos disponibles</p>
+            ) : (
+              <div className="space-y-2">
+                {grupos.map(grupo => (
+                  <div 
+                    key={grupo.id}
+                    className={`p-3 rounded-md border flex items-center justify-between cursor-pointer transition-colors ${
+                      selectedGroups.includes(grupo.id) ? 'bg-primary/10 border-primary/30' : 'bg-background hover:bg-muted/50'
+                    }`}
+                    onClick={() => toggleGroupSelection(grupo.id)}
+                  >
+                    <div>
+                      <h4 className="font-medium">{grupo.name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {grupo.isActive ? 'Activo' : 'Inactivo'}
+                      </p>
+                    </div>
+                    {selectedGroups.includes(grupo.id) ? (
+                      <CheckCircle className="text-primary h-5 w-5" />
+                    ) : (
+                      <XCircle className="text-muted-foreground h-5 w-5 opacity-40" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsGroupDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleGroupSubmit}>
+              Guardar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

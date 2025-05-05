@@ -1,5 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { Group, SupabaseGroup } from '@/types';
+import { Group, SupabaseGroup, GroupMember, SupabaseGroupMember } from '@/types';
 
 // Función auxiliar para convertir un grupo de Supabase a nuestro tipo Group
 const mapSupabaseGroupToGroup = async (supabaseGroup: SupabaseGroup): Promise<Group> => {
@@ -129,6 +130,43 @@ export const getGroupMembers = async (groupId: string): Promise<string[]> => {
   }
 
   return data?.map(item => item.user_id) || [];
+};
+
+// Nueva función para obtener los grupos a los que pertenece un usuario
+export const getGroupsForUser = async (userId: string): Promise<Group[]> => {
+  const { data, error } = await supabase
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching user groups:', error);
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  const groupIds = data.map(item => item.group_id);
+  
+  const { data: groupsData, error: groupsError } = await supabase
+    .from('groups')
+    .select('*, case_types(name)')
+    .in('id', groupIds);
+
+  if (groupsError) {
+    console.error('Error fetching groups by ids:', groupsError);
+    throw groupsError;
+  }
+
+  // Convertir los datos de Supabase a nuestro tipo Group
+  const groups: Group[] = [];
+  for (const group of (groupsData as SupabaseGroup[] || [])) {
+    groups.push(await mapSupabaseGroupToGroup(group));
+  }
+  
+  return groups;
 };
 
 export const assignGroupToCaseType = async (caseTypeId: string, groupId: string, defensoria: string): Promise<void> => {

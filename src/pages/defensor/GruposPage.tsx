@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Group, CaseType } from '@/types';
@@ -11,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { GruposMemberAssignment } from '@/components/grupos/GruposMemberAssignment';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const GruposPage = () => {
   const { currentUser } = useAuth();
@@ -22,6 +25,7 @@ const GruposPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [activeTab, setActiveTab] = useState('lista');
   const [formData, setFormData] = useState({
     name: '',
     caseTypeId: '',
@@ -153,6 +157,36 @@ const GruposPage = () => {
       });
     }
   };
+
+  const handleAssignmentComplete = async () => {
+    // Reload data after assignment is complete
+    if (currentUser?.defensoria) {
+      setLoading(true);
+      try {
+        const [gruposData, abogadosData] = await Promise.all([
+          getGroups(currentUser.defensoria),
+          getUsersByDefensoriaAndRole(currentUser.defensoria, 'abogado')
+        ]);
+        
+        setGrupos(gruposData);
+        setAbogados(abogadosData.filter(a => a.active));
+        
+        toast({
+          title: 'Asignaciones actualizadas',
+          description: 'Las asignaciones de abogados a grupos han sido actualizadas.',
+        });
+      } catch (error) {
+        console.error('Error reloading data:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No se pudieron recargar los datos. Por favor, actualice la página.',
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
   
   const columns = [
     { key: 'name', header: 'Nombre' },
@@ -208,33 +242,60 @@ const GruposPage = () => {
           Administre los grupos de trabajo para asignación de expedientes
         </p>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Grupos</CardTitle>
-              <CardDescription>
-                Lista de grupos de trabajo por tipo de proceso
-              </CardDescription>
-            </div>
-            <Button onClick={() => handleOpenDialog()}>
-              Nuevo grupo
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <DataTable 
-                data={grupos}
-                columns={columns}
-                searchable={true}
-                searchKeys={['name']}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="lista">Lista de Grupos</TabsTrigger>
+            <TabsTrigger value="asignacion">Asignación de Abogados</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="lista" className="mt-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Grupos</CardTitle>
+                  <CardDescription>
+                    Lista de grupos de trabajo por tipo de proceso
+                  </CardDescription>
+                </div>
+                <Button onClick={() => handleOpenDialog()}>
+                  Nuevo grupo
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <DataTable 
+                    data={grupos}
+                    columns={columns}
+                    searchable={true}
+                    searchKeys={['name']}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="asignacion" className="mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <GruposMemberAssignment 
+                    abogados={abogados} 
+                    grupos={grupos}
+                    onAssignmentComplete={handleAssignmentComplete}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
       
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

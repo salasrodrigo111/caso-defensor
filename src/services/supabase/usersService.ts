@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@/types';
+import { User, Group } from '@/types';
+import { getGroupsForUser } from './groupsService';
 
 // Obtener usuarios por defensoría y rol
 export const getUsersByDefensoriaAndRole = async (defensoria: string, role: string): Promise<User[]> => {
@@ -37,7 +38,19 @@ export const getUsersByDefensoriaAndRole = async (defensoria: string, role: stri
     },
   ];
 
-  return mockUsers.filter(user => user.defensoria === defensoria && user.role === role);
+  // Obtener los grupos para cada usuario
+  const usersWithGroups = await Promise.all(
+    mockUsers.filter(user => user.defensoria === defensoria && user.role === role)
+      .map(async user => {
+        const groups = await getGroupsForUser(user.id);
+        return {
+          ...user,
+          groups: groups.map(group => group.name)
+        };
+      })
+  );
+
+  return usersWithGroups;
 };
 
 // Actualizar disponibilidad del usuario
