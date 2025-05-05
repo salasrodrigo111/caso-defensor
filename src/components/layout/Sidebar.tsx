@@ -13,7 +13,7 @@ import {
   LogOut,
   Menu,
   X,
-  BuildingCourt,
+  Building,
   UserCircle,
 } from 'lucide-react';
 
@@ -41,7 +41,7 @@ const Sidebar = () => {
   // Role-specific menu items
   if (currentUser.role === 'administrador') {
     navItems.push(
-      { name: 'Defensorías', path: '/admin/defensorias', icon: BuildingCourt, roles: ['administrador'] },
+      { name: 'Defensorías', path: '/admin/defensorias', icon: Building, roles: ['administrador'] },
       { name: 'Usuarios', path: '/admin/usuarios', icon: Users, roles: ['administrador'] },
     );
   }
