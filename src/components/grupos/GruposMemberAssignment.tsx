@@ -37,7 +37,7 @@ const DraggableItem = ({ id, name }: DraggableItemProps) => {
   );
 };
 
-const DropZone = ({ id, nombre, members, children }: { id: string; nombre: string; members: string[]; children: React.ReactNode }) => {
+const DropZone = ({ id, nombre, members, children }: { id: string; nombre: string; members: User[] | string[]; children: React.ReactNode }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   
   return (
@@ -47,7 +47,7 @@ const DropZone = ({ id, nombre, members, children }: { id: string; nombre: strin
         isOver ? 'border-primary bg-primary/5' : 'border-dashed border-gray-300'
       }`}
     >
-      <h3 className="font-medium mb-2">{nombre} ({members.length})</h3>
+      <h3 className="font-medium mb-2">{nombre} ({Array.isArray(members) ? members.length : 0})</h3>
       <div className="min-h-[100px]">
         {children}
       </div>
