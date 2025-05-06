@@ -5,6 +5,7 @@ import { Case, CaseType } from '@/types';
 import { getCases, assignCase, createCase } from '@/services/supabase/casesService';
 import { getUsersByDefensoriaAndRole } from '@/services/supabase/usersService';
 import { getCaseTypes } from '@/services/supabase/caseTypesService';
+import { getGroupsForCaseType } from '@/services/supabase/groupsService';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/ui/DataTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +18,8 @@ const ExpedientesPage = () => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [expedientes, setExpedientes] = useState<Case[]>([]);
-  const [abogados, setAbogados] = useState<any[]>([]);
+  const [allAbogados, setAllAbogados] = useState<any[]>([]);
+  const [filteredAbogados, setFilteredAbogados] = useState<any[]>([]);
   const [tiposProceso, setTiposProceso] = useState<CaseType[]>([]);
   const [loading, setLoading] = useState(true);
   const [isReasignDialogOpen, setIsReasignDialogOpen] = useState(false);
@@ -40,7 +42,8 @@ const ExpedientesPage = () => {
           ]);
           
           setExpedientes(expedientesData);
-          setAbogados(abogadosData.filter(a => a.active && !a.onLeave));
+          setAllAbogados(abogadosData.filter(a => a.active && !a.onLeave));
+          setFilteredAbogados(abogadosData.filter(a => a.active && !a.onLeave));
           setTiposProceso(tiposData);
         }
       } catch (error) {
@@ -58,8 +61,55 @@ const ExpedientesPage = () => {
     fetchData();
   }, [currentUser, toast]);
   
-  const handleReasignarClick = (expediente: Case) => {
+  const filterAbogadosByActiveGroup = async (caseTypeId: string) => {
+    if (!caseTypeId || !currentUser?.defensoria) {
+      setFilteredAbogados(allAbogados);
+      return;
+    }
+    
+    try {
+      // Get groups for this case type
+      const groups = await getGroupsForCaseType(caseTypeId);
+      
+      // Find the active group
+      const activeGroup = groups.find(g => g.is_active);
+      
+      if (!activeGroup) {
+        // If no active group, use all abogados
+        setFilteredAbogados(allAbogados);
+        return;
+      }
+      
+      // Filter abogados that belong to the active group
+      const groupMembers = allAbogados.filter(abogado => {
+        // Check if the abogado's groups include the active group's name
+        if (abogado.groups && abogado.groups.length > 0) {
+          const groupNames = groups.map(g => g.groups.name);
+          const abogadoGroupNames = abogado.groups;
+          return abogadoGroupNames.some(name => groupNames.includes(name));
+        }
+        return false;
+      });
+      
+      setFilteredAbogados(groupMembers.length > 0 ? groupMembers : allAbogados);
+      
+    } catch (error) {
+      console.error('Error filtering abogados by group:', error);
+      setFilteredAbogados(allAbogados);
+    }
+  };
+  
+  const handleReasignarClick = async (expediente: Case) => {
     setSelectedExpediente(expediente);
+    setSelectedAbogado('');
+    
+    // Filter attorneys based on the case type's active group
+    if (expediente.caseTypeId) {
+      await filterAbogadosByActiveGroup(expediente.caseTypeId);
+    } else {
+      setFilteredAbogados(allAbogados);
+    }
+    
     setIsReasignDialogOpen(true);
   };
   
@@ -141,6 +191,12 @@ const ExpedientesPage = () => {
     }
   };
   
+  const handleCaseTypeChange = async (caseTypeId: string) => {
+    setNewExpedienteData(prev => ({ ...prev, caseTypeId }));
+    
+    // No need to filter abogados when creating a new case
+  };
+  
   const columns = [
     { key: 'caseNumber', header: 'Número' },
     { 
@@ -155,7 +211,7 @@ const ExpedientesPage = () => {
       key: 'assignedToId',
       header: 'Asignado a',
       cell: (row: Case) => {
-        const abogado = abogados.find(a => a.id === row.assignedToId);
+        const abogado = allAbogados.find(a => a.id === row.assignedToId);
         return abogado ? abogado.name : 'Sin asignar';
       } 
     },
@@ -253,12 +309,22 @@ const ExpedientesPage = () => {
                 onChange={(e) => setSelectedAbogado(e.target.value)}
               >
                 <option value="">Seleccione un abogado</option>
-                {abogados.map((abogado) => (
+                {filteredAbogados.map((abogado) => (
                   <option key={abogado.id} value={abogado.id}>
                     {abogado.name}
                   </option>
                 ))}
               </select>
+              {filteredAbogados.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  No hay abogados disponibles en el grupo activo. Considere activar otro grupo.
+                </p>
+              )}
+              {filteredAbogados.length < allAbogados.length && (
+                <p className="text-xs text-blue-600 mt-1">
+                  Solo se muestran los abogados del grupo activo para este tipo de proceso.
+                </p>
+              )}
             </div>
           </div>
           
@@ -300,7 +366,7 @@ const ExpedientesPage = () => {
                 id="caseTypeId"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 value={newExpedienteData.caseTypeId}
-                onChange={(e) => setNewExpedienteData(prev => ({ ...prev, caseTypeId: e.target.value }))}
+                onChange={(e) => handleCaseTypeChange(e.target.value)}
               >
                 <option value="">Seleccione un tipo de proceso</option>
                 {tiposProceso.map((tipo) => (

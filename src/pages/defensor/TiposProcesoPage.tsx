@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { CaseType, Group } from '@/types';
@@ -11,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { Users, UserX, Tooltip } from 'lucide-react';
 
 const TiposProcesoPage = () => {
   const { currentUser } = useAuth();
@@ -24,6 +24,8 @@ const TiposProcesoPage = () => {
   const [selectedTipoProceso, setSelectedTipoProceso] = useState<CaseType | null>(null);
   const [gruposProceso, setGruposProceso] = useState<any[]>([]);
   const [selectedGrupo, setSelectedGrupo] = useState('');
+  const [hoveredCaseType, setHoveredCaseType] = useState<string | null>(null);
+  const [caseTypeGroups, setCaseTypeGroups] = useState<Record<string, any[]>>({});
   const [formData, setFormData] = useState({
     name: '',
     description: ''
@@ -38,6 +40,19 @@ const TiposProcesoPage = () => {
           
           const gruposData = await getGroups(currentUser.defensoria);
           setGrupos(gruposData);
+          
+          // Fetch groups for each case type
+          const groupsMap: Record<string, any[]> = {};
+          await Promise.all(tiposData.map(async (tipo) => {
+            try {
+              const grupData = await getGroupsForCaseType(tipo.id);
+              groupsMap[tipo.id] = grupData;
+            } catch (error) {
+              console.error(`Error fetching groups for case type ${tipo.id}:`, error);
+              groupsMap[tipo.id] = [];
+            }
+          }));
+          setCaseTypeGroups(groupsMap);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -125,6 +140,19 @@ const TiposProcesoPage = () => {
       const tiposData = await getCaseTypes(currentUser.defensoria);
       setTiposProceso(tiposData);
       
+      // Reload groups for each case type
+      const groupsMap: Record<string, any[]> = {};
+      await Promise.all(tiposData.map(async (tipo) => {
+        try {
+          const grupData = await getGroupsForCaseType(tipo.id);
+          groupsMap[tipo.id] = grupData;
+        } catch (error) {
+          console.error(`Error fetching groups for case type ${tipo.id}:`, error);
+          groupsMap[tipo.id] = [];
+        }
+      }));
+      setCaseTypeGroups(groupsMap);
+      
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error saving tipo proceso:', error);
@@ -144,6 +172,12 @@ const TiposProcesoPage = () => {
       
       const gruposData = await getGroupsForCaseType(selectedTipoProceso.id);
       setGruposProceso(gruposData);
+      
+      // Update caseTypeGroups state
+      setCaseTypeGroups(prev => ({
+        ...prev,
+        [selectedTipoProceso.id]: gruposData
+      }));
       
       setSelectedGrupo('');
       toast({
@@ -169,6 +203,12 @@ const TiposProcesoPage = () => {
       const gruposData = await getGroupsForCaseType(selectedTipoProceso.id);
       setGruposProceso(gruposData);
       
+      // Update caseTypeGroups state
+      setCaseTypeGroups(prev => ({
+        ...prev,
+        [selectedTipoProceso.id]: gruposData
+      }));
+      
       toast({
         title: 'Grupo activado',
         description: 'El grupo ha sido activado para este tipo de proceso.',
@@ -183,9 +223,48 @@ const TiposProcesoPage = () => {
     }
   };
   
+  const renderGroupIcon = (caseType: CaseType) => {
+    const groups = caseTypeGroups[caseType.id] || [];
+    const hasGroups = groups.length > 0;
+    
+    return (
+      <div 
+        className="relative inline-block"
+        onMouseEnter={() => setHoveredCaseType(caseType.id)}
+        onMouseLeave={() => setHoveredCaseType(null)}
+      >
+        {hasGroups ? (
+          <Users size={20} className="text-blue-600" />
+        ) : (
+          <UserX size={20} className="text-gray-400" />
+        )}
+        
+        {hoveredCaseType === caseType.id && hasGroups && (
+          <div className="absolute z-50 w-48 p-2 mt-1 bg-white rounded-md shadow-lg border border-gray-200">
+            <p className="font-medium text-sm mb-1">Grupos asignados:</p>
+            <ul className="space-y-1">
+              {groups.map((group) => (
+                <li key={group.group_id} className="text-sm flex items-center">
+                  <span className={`w-2 h-2 rounded-full mr-2 ${group.is_active ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                  {group.groups.name}
+                  {group.is_active && <span className="ml-1 text-xs text-green-500">(activo)</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+  
   const columns = [
     { key: 'name', header: 'Nombre' },
     { key: 'description', header: 'Descripción' },
+    { 
+      key: 'groups',
+      header: 'Grupos',
+      cell: (row: CaseType) => renderGroupIcon(row),
+    },
     { 
       key: 'actions',
       header: 'Acciones',

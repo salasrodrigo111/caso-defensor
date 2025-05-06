@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable } from '@dnd-kit/core';
 import { User, Group } from '@/types';
 import { addUserToGroup, removeUserFromGroup } from '@/services/supabase/groupsService';
@@ -69,6 +70,11 @@ export const GruposMemberAssignment = ({ abogados, grupos, onAssignmentComplete 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
+  // Store the user being dragged for optimistic UI updates
+  const [draggedUser, setDraggedUser] = useState<User | null>(null);
+  const [dragSourceId, setDragSourceId] = useState<string | null>(null);
+  const [dragDestinationId, setDragDestinationId] = useState<string | null>(null);
+  
   useEffect(() => {
     // Initialize available users and group members
     const initGroupMembers: Record<string, User[]> = {};
@@ -102,16 +108,42 @@ export const GruposMemberAssignment = ({ abogados, grupos, onAssignmentComplete 
   }, [abogados, grupos]);
   
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    const userId = event.active.id as string;
+    setActiveId(userId);
+    
+    // Store the user being dragged
+    const user = findUserById(userId);
+    if (user) {
+      setDraggedUser(user);
+      
+      // Store source container
+      if (availableUsers.some(u => u.id === userId)) {
+        setDragSourceId('available');
+      } else {
+        for (const groupId in groupMembers) {
+          if (groupMembers[groupId].some(u => u.id === userId)) {
+            setDragSourceId(groupId);
+            break;
+          }
+        }
+      }
+    }
   };
   
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     
-    if (!over) return;
+    if (!over || !draggedUser) {
+      setActiveId(null);
+      setDraggedUser(null);
+      setDragSourceId(null);
+      setDragDestinationId(null);
+      return;
+    }
     
     const userId = active.id as string;
     const targetId = over.id as string;
+    setDragDestinationId(targetId);
     
     // Validar que userId es un UUID válido
     const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
@@ -122,124 +154,120 @@ export const GruposMemberAssignment = ({ abogados, grupos, onAssignmentComplete 
         title: "Error",
         description: "ID de usuario inválido. Debe tener formato UUID.",
       });
+      setActiveId(null);
+      setDraggedUser(null);
+      setDragSourceId(null);
+      setDragDestinationId(null);
       return;
     }
     
-    // Don't do anything if dropped in the same container
-    if (targetId === 'available') {
+    // Apply optimistic UI updates
+    // These updates will happen immediately for better UX
+    if (targetId === 'available' && dragSourceId !== 'available') {
       // Move from group to available
-      const user = findUserById(userId);
-      if (!user) return;
-      
-      // Find which group the user is in
-      for (const groupId in groupMembers) {
-        if (groupMembers[groupId].some(u => u.id === userId)) {
-          try {
-            setLoading(true);
-            // Remove user from the group in database
-            await removeUserFromGroup(groupId, userId);
-            
-            // Update state
-            setGroupMembers(prev => ({
-              ...prev,
-              [groupId]: prev[groupId].filter(u => u.id !== userId)
-            }));
-            setAvailableUsers(prev => [...prev, user]);
-            
-            toast({
-              title: "Usuario removido",
-              description: `${user.name} ha sido removido del grupo.`,
-            });
-          } catch (error) {
-            console.error('Error removing user from group:', error);
-            toast({
-              variant: "destructive",
-              title: "Error",
-              description: "No se pudo remover al usuario del grupo.",
-            });
-          } finally {
-            setLoading(false);
-          }
-          break;
-        }
+      if (dragSourceId) {
+        // Update state optimistically
+        setGroupMembers(prev => ({
+          ...prev,
+          [dragSourceId]: prev[dragSourceId].filter(u => u.id !== userId)
+        }));
+        setAvailableUsers(prev => [...prev, draggedUser]);
       }
-    } else if (targetId !== 'available') {
-      // Move to a group
-      const groupId = targetId;
-      const user = findUserById(userId);
-      if (!user) return;
-      
-      // Check if user is coming from available or another group
-      const isFromAvailable = availableUsers.some(u => u.id === userId);
-      
-      if (isFromAvailable) {
-        try {
-          setLoading(true);
-          // Add user to group in database
-          await addUserToGroup(groupId, userId);
-          
-          // Update state
-          setAvailableUsers(prev => prev.filter(u => u.id !== userId));
-          setGroupMembers(prev => ({
-            ...prev,
-            [groupId]: [...prev[groupId], user]
-          }));
-          
-          toast({
-            title: "Usuario asignado",
-            description: `${user.name} ha sido asignado al grupo.`,
-          });
-        } catch (error) {
-          console.error('Error adding user to group:', error);
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No se pudo asignar al usuario al grupo.",
-          });
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        // Find which group the user is in
-        for (const srcGroupId in groupMembers) {
-          if (groupMembers[srcGroupId].some(u => u.id === userId)) {
-            if (srcGroupId === groupId) return; // Already in this group
-            
-            try {
-              setLoading(true);
-              // Remove from old group
-              await removeUserFromGroup(srcGroupId, userId);
-              // Add to new group
-              await addUserToGroup(groupId, userId);
-              
-              // Update state
-              setGroupMembers(prev => ({
-                ...prev,
-                [srcGroupId]: prev[srcGroupId].filter(u => u.id !== userId),
-                [groupId]: [...prev[groupId], user]
-              }));
-              
-              toast({
-                title: "Usuario transferido",
-                description: `${user.name} ha sido transferido a otro grupo.`,
-              });
-            } catch (error) {
-              console.error('Error transferring user between groups:', error);
-              toast({
-                variant: "destructive",
-                title: "Error",
-                description: "No se pudo transferir al usuario entre grupos.",
-              });
-            } finally {
-              setLoading(false);
-            }
-            break;
-          }
-        }
+    } else if (targetId !== 'available' && dragSourceId === 'available') {
+      // Move from available to group
+      // Update state optimistically
+      setAvailableUsers(prev => prev.filter(u => u.id !== userId));
+      setGroupMembers(prev => ({
+        ...prev,
+        [targetId]: [...prev[targetId], draggedUser]
+      }));
+    } else if (targetId !== 'available' && dragSourceId !== 'available' && targetId !== dragSourceId) {
+      // Move from one group to another
+      // Update state optimistically
+      if (dragSourceId) {
+        setGroupMembers(prev => ({
+          ...prev,
+          [dragSourceId]: prev[dragSourceId].filter(u => u.id !== userId),
+          [targetId]: [...prev[targetId], draggedUser]
+        }));
       }
     }
     
-    setActiveId(null);
+    // Now perform the actual API calls in the background
+    try {
+      setLoading(true);
+      
+      if (targetId === 'available' && dragSourceId !== 'available' && dragSourceId !== null) {
+        // Remove user from group in database
+        await removeUserFromGroup(dragSourceId, userId);
+        
+        toast({
+          title: "Usuario removido",
+          description: `${draggedUser.name} ha sido removido del grupo.`,
+        });
+      } else if (targetId !== 'available' && dragSourceId === 'available') {
+        // Add user to group in database
+        await addUserToGroup(targetId, userId);
+        
+        toast({
+          title: "Usuario asignado",
+          description: `${draggedUser.name} ha sido asignado al grupo.`,
+        });
+      } else if (targetId !== 'available' && dragSourceId !== 'available' && dragSourceId !== null && targetId !== dragSourceId) {
+        // Move user between groups
+        await removeUserFromGroup(dragSourceId, userId);
+        await addUserToGroup(targetId, userId);
+        
+        toast({
+          title: "Usuario transferido",
+          description: `${draggedUser.name} ha sido transferido a otro grupo.`,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating user group assignment:', error);
+      
+      // Revert optimistic updates on error
+      // This would need a more complex state tracking mechanism
+      // For now, we'll just show an error message
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo actualizar la asignación del usuario. Por favor, inténtelo de nuevo.",
+      });
+      
+      // Refresh the component state to match the server state
+      const initGroupMembers: Record<string, User[]> = {};
+      const userGroups: Record<string, string[]> = {};
+      
+      grupos.forEach(grupo => {
+        initGroupMembers[grupo.id] = [];
+      });
+      
+      abogados.forEach(abogado => {
+        const userGroupNames = abogado.groups || [];
+        userGroups[abogado.id] = [];
+        
+        grupos.forEach(grupo => {
+          if (grupo.members.includes(abogado.id) || userGroupNames.includes(grupo.name)) {
+            initGroupMembers[grupo.id].push(abogado);
+            userGroups[abogado.id].push(grupo.id);
+          }
+        });
+      });
+      
+      const available = abogados.filter(abogado => {
+        return userGroups[abogado.id].length === 0;
+      });
+      
+      setGroupMembers(initGroupMembers);
+      setAvailableUsers(available);
+    } finally {
+      setLoading(false);
+      setActiveId(null);
+      setDraggedUser(null);
+      setDragSourceId(null);
+      setDragDestinationId(null);
+    }
   };
   
   const findUserById = (userId: string): User | undefined => {
@@ -264,6 +292,25 @@ export const GruposMemberAssignment = ({ abogados, grupos, onAssignmentComplete 
     });
   };
   
+  // Memoize rendered items to prevent unnecessary re-renders
+  const renderAvailableUsers = useMemo(() => {
+    return availableUsers.map(user => (
+      <DraggableItem key={user.id} id={user.id} name={user.name} />
+    ));
+  }, [availableUsers]);
+  
+  const renderGroupUsers = useMemo(() => {
+    const result: Record<string, JSX.Element[]> = {};
+    
+    for (const groupId in groupMembers) {
+      result[groupId] = groupMembers[groupId].map(user => (
+        <DraggableItem key={user.id} id={user.id} name={user.name} />
+      ));
+    }
+    
+    return result;
+  }, [groupMembers]);
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -285,9 +332,7 @@ export const GruposMemberAssignment = ({ abogados, grupos, onAssignmentComplete 
             </CardHeader>
             <CardContent>
               <DropZone id="available" nombre="Sin asignar" members={availableUsers}>
-                {availableUsers.map(user => (
-                  <DraggableItem key={user.id} id={user.id} name={user.name} />
-                ))}
+                {renderAvailableUsers}
                 {availableUsers.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No hay abogados disponibles
@@ -306,9 +351,7 @@ export const GruposMemberAssignment = ({ abogados, grupos, onAssignmentComplete 
                   </CardHeader>
                   <CardContent>
                     <DropZone id={grupo.id} nombre="Miembros" members={groupMembers[grupo.id] || []}>
-                      {(groupMembers[grupo.id] || []).map(user => (
-                        <DraggableItem key={user.id} id={user.id} name={user.name} />
-                      ))}
+                      {renderGroupUsers[grupo.id]}
                       {(groupMembers[grupo.id] || []).length === 0 && (
                         <p className="text-sm text-muted-foreground text-center py-4">
                           Arrastra abogados aquí
@@ -323,10 +366,10 @@ export const GruposMemberAssignment = ({ abogados, grupos, onAssignmentComplete 
         </div>
         
         <DragOverlay>
-          {activeId ? (
+          {activeId && draggedUser ? (
             <div className="p-3 bg-white rounded-md shadow border border-primary flex items-center">
               <UserIcon className="mr-2 h-4 w-4 text-primary" />
-              <span>{findUserById(activeId)?.name}</span>
+              <span>{draggedUser.name}</span>
             </div>
           ) : null}
         </DragOverlay>
