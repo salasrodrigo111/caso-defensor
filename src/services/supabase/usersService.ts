@@ -5,52 +5,65 @@ import { getGroupsForUser } from './groupsService';
 
 // Obtener usuarios por defensoría y rol
 export const getUsersByDefensoriaAndRole = async (defensoria: string, role: string): Promise<User[]> => {
-  // En un sistema real, esta función debería consultar a una tabla de usuarios en Supabase
-  // Por ahora, utilizaremos datos de ejemplo
-  
-  // Mock data - en una implementación real esto vendría de la base de datos
-  const mockUsers: User[] = [
-    {
-      id: '1',
-      email: 'abogado1@defensoria.gob',
-      name: 'Abogado Pérez',
-      role: 'abogado',
-      defensoria: defensoria,
-      active: true,
-    },
-    {
-      id: '2',
-      email: 'abogado2@defensoria.gob',
-      name: 'Abogada García',
-      role: 'abogado',
-      defensoria: defensoria,
-      active: true,
-      onLeave: true,
-      leaveEndDate: new Date('2023-08-15'),
-    },
-    {
-      id: '3',
-      email: 'abogado3@defensoria.gob',
-      name: 'Abogado Rodríguez',
-      role: 'abogado',
-      defensoria: defensoria,
-      active: false,
-    },
-  ];
+  try {
+    // En un sistema real, esta función debería consultar a una tabla de usuarios en Supabase
+    // Por ahora, utilizaremos datos de ejemplo
+    
+    // Mock data - en una implementación real esto vendría de la base de datos
+    const mockUsers: User[] = [
+      {
+        id: 'user-1',
+        email: 'abogado1@defensoria.gob',
+        name: 'Abogado Pérez',
+        role: 'abogado',
+        defensoria: defensoria,
+        active: true,
+      },
+      {
+        id: 'user-2',
+        email: 'abogado2@defensoria.gob',
+        name: 'Abogada García',
+        role: 'abogado',
+        defensoria: defensoria,
+        active: true,
+        onLeave: true,
+        leaveEndDate: new Date('2023-08-15'),
+      },
+      {
+        id: 'user-3',
+        email: 'abogado3@defensoria.gob',
+        name: 'Abogado Rodríguez',
+        role: 'abogado',
+        defensoria: defensoria,
+        active: false,
+      },
+    ];
 
-  // Obtener los grupos para cada usuario
-  const usersWithGroups = await Promise.all(
-    mockUsers.filter(user => user.defensoria === defensoria && user.role === role)
-      .map(async user => {
-        const groups = await getGroupsForUser(user.id);
-        return {
-          ...user,
-          groups: groups.map(group => group.name)
-        };
-      })
-  );
+    // Obtener los grupos para cada usuario usando formato compatible con UUID
+    const usersWithGroups = await Promise.all(
+      mockUsers.filter(user => user.defensoria === defensoria && user.role === role)
+        .map(async user => {
+          try {
+            const groups = await getGroupsForUser(user.id);
+            return {
+              ...user,
+              groups: groups.map(group => group.name)
+            };
+          } catch (error) {
+            console.log(`Error obteniendo grupos para usuario ${user.id}:`, error);
+            return {
+              ...user,
+              groups: []
+            };
+          }
+        })
+    );
 
-  return usersWithGroups;
+    return usersWithGroups;
+  } catch (error) {
+    console.error("Error al obtener usuarios:", error);
+    return [];
+  }
 };
 
 // Actualizar disponibilidad del usuario

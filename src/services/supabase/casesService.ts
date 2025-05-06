@@ -16,96 +16,121 @@ const mapSupabaseCaseToCase = (supabaseCase: SupabaseCase): Case => ({
 });
 
 export const getCases = async (defensoria: string): Promise<Case[]> => {
-  const { data, error } = await supabase
-    .from('cases')
-    .select('*, case_types(name)')
-    .eq('defensoria', defensoria);
+  try {
+    const { data, error } = await supabase
+      .from('cases')
+      .select('*, case_types(name)')
+      .eq('defensoria', defensoria);
 
-  if (error) {
-    console.error('Error fetching cases:', error);
-    throw error;
+    if (error) {
+      console.error('Error fetching cases:', error);
+      throw error;
+    }
+
+    return (data as SupabaseCase[] || []).map(mapSupabaseCaseToCase);
+  } catch (error) {
+    console.error("Error al obtener casos:", error);
+    return [];
   }
-
-  return (data as SupabaseCase[] || []).map(mapSupabaseCaseToCase);
 };
 
 export const createCase = async (caseData: Omit<Case, 'id'>): Promise<Case> => {
-  // Convertir de nuestro tipo a formato Supabase
-  const supabaseCaseData = {
-    case_number: caseData.caseNumber,
-    case_type_id: caseData.caseTypeId,
-    assigned_to_id: caseData.assignedToId,
-    assigned_at: caseData.assignedAt?.toISOString(),
-    is_taken: caseData.isTaken,
-    taken_at: caseData.takenAt?.toISOString(),
-    defensoria: caseData.defensoria,
-    created_at: caseData.createdAt.toISOString()
-  };
+  try {
+    // Convertir de nuestro tipo a formato Supabase
+    const supabaseCaseData = {
+      case_number: caseData.caseNumber,
+      case_type_id: caseData.caseTypeId,
+      assigned_to_id: caseData.assignedToId,
+      assigned_at: caseData.assignedAt?.toISOString(),
+      is_taken: caseData.isTaken,
+      taken_at: caseData.takenAt?.toISOString(),
+      defensoria: caseData.defensoria,
+      created_at: caseData.createdAt.toISOString()
+    };
 
-  const { data, error } = await supabase
-    .from('cases')
-    .insert(supabaseCaseData)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from('cases')
+      .insert(supabaseCaseData)
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error creating case:', error);
+    if (error) {
+      console.error('Error creating case:', error);
+      throw error;
+    }
+
+    return mapSupabaseCaseToCase(data as SupabaseCase);
+  } catch (error) {
+    console.error("Error al crear caso:", error);
     throw error;
   }
-
-  return mapSupabaseCaseToCase(data as SupabaseCase);
 };
 
 export const assignCase = async (id: string, userId: string): Promise<Case> => {
-  const { data, error } = await supabase
-    .from('cases')
-    .update({ 
-      assigned_to_id: userId, 
-      assigned_at: new Date().toISOString() 
-    })
-    .eq('id', id)
-    .eq('is_taken', false) // Solo puede reasignar si no ha sido tomado
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('cases')
+      .update({ 
+        assigned_to_id: userId, 
+        assigned_at: new Date().toISOString() 
+      })
+      .eq('id', id)
+      .eq('is_taken', false) // Solo puede reasignar si no ha sido tomado
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error assigning case:', error);
+    if (error) {
+      console.error('Error assigning case:', error);
+      throw error;
+    }
+
+    return mapSupabaseCaseToCase(data as SupabaseCase);
+  } catch (error) {
+    console.error(`Error asignando caso ${id} al usuario ${userId}:`, error);
     throw error;
   }
-
-  return mapSupabaseCaseToCase(data as SupabaseCase);
 };
 
 export const takeCase = async (id: string, userId: string): Promise<Case> => {
-  const { data, error } = await supabase
-    .from('cases')
-    .update({ 
-      is_taken: true, 
-      taken_at: new Date().toISOString() 
-    })
-    .eq('id', id)
-    .eq('assigned_to_id', userId) // Solo puede tomar si está asignado a él
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('cases')
+      .update({ 
+        is_taken: true, 
+        taken_at: new Date().toISOString() 
+      })
+      .eq('id', id)
+      .eq('assigned_to_id', userId) // Solo puede tomar si está asignado a él
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error taking case:', error);
+    if (error) {
+      console.error('Error taking case:', error);
+      throw error;
+    }
+
+    return mapSupabaseCaseToCase(data as SupabaseCase);
+  } catch (error) {
+    console.error(`Error tomando caso ${id} por usuario ${userId}:`, error);
     throw error;
   }
-
-  return mapSupabaseCaseToCase(data as SupabaseCase);
 };
 
 export const getAssignedCases = async (userId: string): Promise<Case[]> => {
-  const { data, error } = await supabase
-    .from('cases')
-    .select('*, case_types(name)')
-    .eq('assigned_to_id', userId);
+  try {
+    const { data, error } = await supabase
+      .from('cases')
+      .select('*, case_types(name)')
+      .eq('assigned_to_id', userId);
 
-  if (error) {
-    console.error('Error fetching assigned cases:', error);
-    throw error;
+    if (error) {
+      console.error('Error fetching assigned cases:', error);
+      throw error;
+    }
+
+    return (data as SupabaseCase[] || []).map(mapSupabaseCaseToCase);
+  } catch (error) {
+    console.error(`Error obteniendo casos asignados al usuario ${userId}:`, error);
+    return [];
   }
-
-  return (data as SupabaseCase[] || []).map(mapSupabaseCaseToCase);
 };

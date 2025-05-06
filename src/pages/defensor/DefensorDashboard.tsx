@@ -1,12 +1,25 @@
 
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
 
 const DefensorDashboard = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [showReasignarDialog, setShowReasignarDialog] = useState(false);
+  const [selectedExpediente, setSelectedExpediente] = useState<any>(null);
 
   // Mock data
   const expedientes = [
@@ -31,6 +44,62 @@ const DefensorDashboard = () => {
     { id: 'abog-4', nombre: 'Abogada Martínez', email: 'martinez@defensoria.gob', grupos: 'Civil Grupo B', disponible: true },
   ];
 
+  const handleVerExpediente = (expediente: any) => {
+    toast({ 
+      title: "Ver expediente", 
+      description: `Expediente ${expediente.numero}` 
+    });
+    // En una implementación real, aquí se navegaría a la página de detalles del expediente
+  };
+
+  const handleReasignarClick = (expediente: any) => {
+    setSelectedExpediente(expediente);
+    setShowReasignarDialog(true);
+  };
+
+  const handleReasignarExpediente = () => {
+    if (!selectedExpediente) return;
+
+    toast({
+      title: "Expediente reasignado", 
+      description: `El expediente ${selectedExpediente.numero} ha sido reasignado exitosamente.` 
+    });
+    
+    setShowReasignarDialog(false);
+  };
+
+  const handleActivarDesactivarGrupo = (grupo: any) => {
+    toast({ 
+      title: grupo.activo ? "Grupo desactivado" : "Grupo activado", 
+      description: `El grupo ${grupo.nombre} ha sido ${grupo.activo ? "desactivado" : "activado"} exitosamente.` 
+    });
+    // En una implementación real, aquí se actualizaría el estado del grupo
+  };
+
+  const handleEditarGrupo = (grupo: any) => {
+    toast({ 
+      title: "Editar grupo", 
+      description: `Edición del grupo ${grupo.nombre}` 
+    });
+    // En una implementación real, aquí se abriría un diálogo de edición
+  };
+
+  const handleGestionarDisponibilidad = (abogado: any) => {
+    toast({ 
+      title: abogado.disponible ? "Abogado marcado como ausente" : "Abogado marcado como disponible", 
+      description: `El abogado ${abogado.nombre} ha sido marcado como ${abogado.disponible ? "ausente" : "disponible"}.` 
+    });
+    // En una implementación real, aquí se actualizaría la disponibilidad del abogado
+  };
+
+  const handleGestionarGrupos = (abogado: any) => {
+    toast({ 
+      title: "Gestionar grupos", 
+      description: `Gestión de grupos para el abogado ${abogado.nombre}` 
+    });
+    // En una implementación real, aquí se abriría un diálogo para gestionar los grupos
+  };
+
   const expedienteColumns = [
     { key: 'numero', header: 'Número' },
     { key: 'tipo', header: 'Tipo' },
@@ -52,20 +121,14 @@ const DefensorDashboard = () => {
         <div className="flex space-x-2">
           <button 
             className="text-sm text-blue-600 hover:underline"
-            onClick={() => toast({ 
-              title: "Ver expediente", 
-              description: `Expediente ${row.numero}` 
-            })}
+            onClick={() => handleVerExpediente(row)}
           >
             Ver
           </button>
           {!row.tomado && (
             <button 
               className="text-sm text-blue-600 hover:underline"
-              onClick={() => toast({ 
-                title: "Reasignar expediente", 
-                description: `Expediente ${row.numero}` 
-              })}
+              onClick={() => handleReasignarClick(row)}
             >
               Reasignar
             </button>
@@ -95,19 +158,13 @@ const DefensorDashboard = () => {
         <div className="flex space-x-2">
           <button 
             className="text-sm text-blue-600 hover:underline"
-            onClick={() => toast({ 
-              title: row.activo ? "Desactivar grupo" : "Activar grupo", 
-              description: `Grupo ${row.nombre}` 
-            })}
+            onClick={() => handleActivarDesactivarGrupo(row)}
           >
             {row.activo ? 'Desactivar' : 'Activar'}
           </button>
           <button 
             className="text-sm text-blue-600 hover:underline"
-            onClick={() => toast({ 
-              title: "Editar grupo", 
-              description: `Grupo ${row.nombre}` 
-            })}
+            onClick={() => handleEditarGrupo(row)}
           >
             Editar
           </button>
@@ -136,19 +193,13 @@ const DefensorDashboard = () => {
         <div className="flex space-x-2">
           <button 
             className="text-sm text-blue-600 hover:underline"
-            onClick={() => toast({ 
-              title: "Gestionar disponibilidad", 
-              description: `Abogado ${row.nombre}` 
-            })}
+            onClick={() => handleGestionarDisponibilidad(row)}
           >
             {row.disponible ? 'Marcar ausente' : 'Marcar disponible'}
           </button>
           <button 
             className="text-sm text-blue-600 hover:underline"
-            onClick={() => toast({ 
-              title: "Gestionar grupos", 
-              description: `Abogado ${row.nombre}` 
-            })}
+            onClick={() => handleGestionarGrupos(row)}
           >
             Grupos
           </button>
@@ -156,6 +207,10 @@ const DefensorDashboard = () => {
       ),
     },
   ];
+
+  const navigateToPage = (page: string) => {
+    navigate(`/defensor/${page}`);
+  };
 
   return (
     <DashboardLayout>
@@ -228,6 +283,9 @@ const DefensorDashboard = () => {
                 Gestione los expedientes de su defensoría
               </CardDescription>
             </div>
+            <Button onClick={() => navigateToPage('expedientes')}>
+              Ver todos
+            </Button>
           </CardHeader>
           <CardContent>
             <DataTable 
@@ -248,16 +306,19 @@ const DefensorDashboard = () => {
                   Administre los grupos de trabajo
                 </CardDescription>
               </div>
-              <Button
-                onClick={() => 
+              <div className="flex space-x-2">
+                <Button onClick={() => navigateToPage('grupos')}>
+                  Ver todos
+                </Button>
+                <Button variant="outline" onClick={() => 
                   toast({ 
                     title: "Nuevo grupo", 
                     description: "Crear un nuevo grupo de trabajo" 
                   })
-                }
-              >
-                Nuevo grupo
-              </Button>
+                }>
+                  Nuevo grupo
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable 
@@ -277,6 +338,9 @@ const DefensorDashboard = () => {
                   Gestione los abogados y su disponibilidad
                 </CardDescription>
               </div>
+              <Button onClick={() => navigateToPage('abogados')}>
+                Ver todos
+              </Button>
             </CardHeader>
             <CardContent>
               <DataTable 
@@ -289,6 +353,42 @@ const DefensorDashboard = () => {
           </Card>
         </div>
       </div>
+
+      {/* Dialog de reasignación de expediente */}
+      <Dialog open={showReasignarDialog} onOpenChange={setShowReasignarDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reasignar Expediente</DialogTitle>
+            <DialogDescription>
+              Seleccione un abogado para reasignar el expediente {selectedExpediente?.numero}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="abogado" className="text-sm font-medium">Seleccionar Abogado</label>
+              <select
+                id="abogado"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Seleccione un abogado</option>
+                {abogados.filter(a => a.disponible).map((abogado) => (
+                  <option key={abogado.id} value={abogado.id}>{abogado.nombre}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReasignarDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleReasignarExpediente}>
+              Reasignar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
