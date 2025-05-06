@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable } from '@dnd-kit/core';
 import { User, Group } from '@/types';
@@ -37,7 +36,15 @@ const DraggableItem = ({ id, name }: DraggableItemProps) => {
   );
 };
 
-const DropZone = ({ id, nombre, members, children }: { id: string; nombre: string; members: User[] | string[]; children: React.ReactNode }) => {
+// Modificando DropZone para aceptar tanto User[] como string[]
+interface DropZoneProps {
+  id: string;
+  nombre: string;
+  members: User[] | string[];
+  children: React.ReactNode;
+}
+
+const DropZone = ({ id, nombre, members, children }: DropZoneProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   
   return (
@@ -105,6 +112,18 @@ export const GruposMemberAssignment = ({ abogados, grupos, onAssignmentComplete 
     
     const userId = active.id as string;
     const targetId = over.id as string;
+    
+    // Validar que userId es un UUID válido
+    const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+    
+    if (!isValidUUID) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "ID de usuario inválido. Debe tener formato UUID.",
+      });
+      return;
+    }
     
     // Don't do anything if dropped in the same container
     if (targetId === 'available') {
