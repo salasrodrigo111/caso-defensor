@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Case, CaseType } from '@/types';
-import { getCases, assignCase, createCase } from '@/services/supabase/casesService';
+import { getCases, assignCase, createCase, autoAssignCaseToRandomAvailableAbogado } from '@/services/supabase/casesService';
 import { getUsersByDefensoriaAndRole } from '@/services/supabase/usersService';
 import { getCaseTypes } from '@/services/supabase/caseTypesService';
 import { getGroupsForCaseType } from '@/services/supabase/groupsService';
@@ -161,6 +160,7 @@ const ExpedientesPage = () => {
     }
     
     try {
+      // Create the case without assigning it initially
       const newCase: Omit<Case, 'id'> = {
         caseNumber: newExpedienteData.caseNumber,
         caseTypeId: newExpedienteData.caseTypeId,
@@ -169,15 +169,19 @@ const ExpedientesPage = () => {
         createdAt: new Date()
       };
       
-      await createCase(newCase);
+      // Create the case
+      const createdCase = await createCase(newCase);
       
-      // Actualizar la lista de expedientes
+      // Auto-assign to a random available attorney from the active group
+      await autoAssignCaseToRandomAvailableAbogado(createdCase.id, createdCase.caseTypeId, currentUser.defensoria);
+      
+      // Refresh the expedientes list
       const expedientesData = await getCases(currentUser.defensoria);
       setExpedientes(expedientesData);
       
       toast({
         title: 'Expediente creado',
-        description: `El expediente ${newExpedienteData.caseNumber} ha sido creado exitosamente.`,
+        description: `El expediente ${newExpedienteData.caseNumber} ha sido creado y asignado automáticamente.`,
       });
       
       setIsNewExpedienteDialogOpen(false);
@@ -193,8 +197,6 @@ const ExpedientesPage = () => {
   
   const handleCaseTypeChange = async (caseTypeId: string) => {
     setNewExpedienteData(prev => ({ ...prev, caseTypeId }));
-    
-    // No need to filter abogados when creating a new case
   };
   
   const columns = [
