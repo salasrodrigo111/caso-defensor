@@ -3,159 +3,150 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Group } from '@/types';
 import { getGroupsForUser } from './groupsService';
 
-// Obtener usuarios por defensoría y rol
+// Mock users data - since there's no users table in Supabase schema yet
+const mockUsers: Record<string, User> = {
+  '123e4567-e89b-12d3-a456-426614174000': {
+    id: '123e4567-e89b-12d3-a456-426614174000',
+    email: 'abogado1@defensoria.gob',
+    name: 'Abogado Pérez',
+    role: 'abogado',
+    defensoria: 'def-1',
+    active: true,
+    groups: []
+  },
+  '223e4567-e89b-12d3-a456-426614174001': {
+    id: '223e4567-e89b-12d3-a456-426614174001',
+    email: 'abogado2@defensoria.gob',
+    name: 'Abogada García',
+    role: 'abogado',
+    defensoria: 'def-1',
+    active: true,
+    onLeave: true,
+    leaveEndDate: new Date('2023-08-15'),
+    groups: []
+  },
+  '323e4567-e89b-12d3-a456-426614174002': {
+    id: '323e4567-e89b-12d3-a456-426614174002',
+    email: 'abogado3@defensoria.gob',
+    name: 'Abogado Rodríguez',
+    role: 'abogado',
+    defensoria: 'def-1',
+    active: false,
+    groups: []
+  }
+};
+
+// Get all users from a defensoria with a specific role
 export const getUsersByDefensoriaAndRole = async (defensoria: string, role: string): Promise<User[]> => {
   try {
-    // En un sistema real, esta función debería consultar a una tabla de usuarios en Supabase
-    // Intentamos primero con la base de datos
-    const { data: realUsers, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('defensoria', defensoria)
-      .eq('role', role);
-
-    if (error) {
-      console.error("Error consultando usuarios:", error);
-      // Si hay un error con la base de datos real, usamos datos de ejemplo
-      const mockUsers: User[] = [
-        {
-          id: '123e4567-e89b-12d3-a456-426614174000', // UUID formato correcto
-          email: 'abogado1@defensoria.gob',
-          name: 'Abogado Pérez',
-          role: 'abogado',
-          defensoria: defensoria,
-          active: true,
-        },
-        {
-          id: '223e4567-e89b-12d3-a456-426614174001', // UUID formato correcto
-          email: 'abogado2@defensoria.gob',
-          name: 'Abogada García',
-          role: 'abogado',
-          defensoria: defensoria,
-          active: true,
-          onLeave: true,
-          leaveEndDate: new Date('2023-08-15'),
-        },
-        {
-          id: '323e4567-e89b-12d3-a456-426614174002', // UUID formato correcto
-          email: 'abogado3@defensoria.gob',
-          name: 'Abogado Rodríguez',
-          role: 'abogado',
-          defensoria: defensoria,
-          active: false,
-        },
-      ];
-
-      // Obtener los grupos para cada usuario usando formato compatible con UUID
-      const usersWithGroups = await Promise.all(
-        mockUsers.filter(user => user.defensoria === defensoria && user.role === role)
-          .map(async user => {
-            try {
-              const groups = await getGroupsForUser(user.id);
-              return {
-                ...user,
-                groups: groups.map(group => group.name)
-              };
-            } catch (error) {
-              console.log(`Error obteniendo grupos para usuario ${user.id}:`, error);
-              return {
-                ...user,
-                groups: []
-              };
-            }
-          })
-      );
-
-      return usersWithGroups;
-    } else {
-      // Si hay datos reales, los mapeamos al formato esperado
-      const usersWithGroups = await Promise.all(
-        (realUsers || []).map(async user => {
-          try {
-            const groups = await getGroupsForUser(user.id);
-            return {
-              ...user,
-              groups: groups.map(group => group.name)
-            };
-          } catch (error) {
-            console.log(`Error obteniendo grupos para usuario ${user.id}:`, error);
-            return {
-              ...user,
-              groups: []
-            };
-          }
-        })
-      );
-      return usersWithGroups;
-    }
+    // Since we don't have a users table in Supabase, we'll use mock data
+    console.log(`Getting users for defensoria ${defensoria} with role ${role}`);
+    
+    // Filter mock users based on defensoria and role
+    const filteredUsers = Object.values(mockUsers).filter(
+      user => user.defensoria === defensoria && user.role === role
+    );
+    
+    // Add groups to each user
+    const usersWithGroups = await Promise.all(
+      filteredUsers.map(async user => {
+        try {
+          const groups = await getGroupsForUser(user.id);
+          return {
+            ...user,
+            groups: groups.map(group => group.name)
+          };
+        } catch (error) {
+          console.log(`Error getting groups for user ${user.id}:`, error);
+          return {
+            ...user,
+            groups: []
+          };
+        }
+      })
+    );
+    
+    return usersWithGroups;
   } catch (error) {
-    console.error("Error al obtener usuarios:", error);
+    console.error("Error getting users:", error);
     return [];
   }
 };
 
-// Actualizar disponibilidad del usuario
+// Update user availability
 export const updateUserAvailability = async (userId: string, isOnLeave: boolean, leaveEndDate?: Date): Promise<User> => {
   try {
-    // Intentamos actualizar en la base de datos real
-    const { data, error } = await supabase
-      .from('users')
-      .update({ 
-        onLeave: isOnLeave,
-        leaveEndDate: leaveEndDate ? leaveEndDate.toISOString() : null
-      })
-      .eq('id', userId)
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
+    // Since we don't have a users table in Supabase yet, we'll update our mock data
+    console.log(`Updating user ${userId}: onLeave=${isOnLeave}, leaveEndDate=${leaveEndDate}`);
+    
+    if (!mockUsers[userId]) {
+      throw new Error(`User with ID ${userId} not found`);
     }
-
-    return data as User;
-  } catch (error) {
-    console.error(`Error actualizando disponibilidad del usuario ${userId}:`, error);
     
-    // Simulamos la respuesta en caso de error
-    console.log(`Usuario ${userId} actualizado: onLeave=${isOnLeave}, leaveEndDate=${leaveEndDate}`);
-    
-    return {
-      id: userId,
-      email: 'usuario@defensoria.gob',
-      name: 'Usuario Actualizado',
-      role: 'abogado',
-      defensoria: 'def-1',
-      active: true,
+    // Update the mock user
+    mockUsers[userId] = {
+      ...mockUsers[userId],
       onLeave: isOnLeave,
-      leaveEndDate,
+      leaveEndDate
     };
+    
+    return mockUsers[userId];
+  } catch (error) {
+    console.error(`Error updating user availability for ${userId}:`, error);
+    
+    // If user doesn't exist in mock data, create a new entry
+    if (!mockUsers[userId]) {
+      mockUsers[userId] = {
+        id: userId,
+        email: 'usuario@defensoria.gob',
+        name: 'Usuario Actualizado',
+        role: 'abogado',
+        defensoria: 'def-1',
+        active: true,
+        onLeave: isOnLeave,
+        leaveEndDate,
+        groups: []
+      };
+    }
+    
+    return mockUsers[userId];
   }
 };
 
-// Crear un nuevo usuario
+// Create a new user
 export const createUser = async (userData: Omit<User, 'id'>): Promise<User> => {
   try {
-    // Intentamos crear en la base de datos real
-    const { data, error } = await supabase
-      .from('users')
-      .insert([userData])
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return data as User;
-  } catch (error) {
-    // En caso de error mostramos en la consola y retornamos un mock
-    console.error('Error creando usuario:', error);
-    console.log('Creando usuario:', userData);
+    // Generate a new UUID for the user
+    const newUserId = crypto.randomUUID();
+    console.log('Creating user with ID:', newUserId, userData);
     
-    // Mock de retorno
-    return {
-      id: crypto.randomUUID(), // Generamos un UUID válido para simular la respuesta
+    // Create the new user in our mock data
+    const newUser: User = {
+      id: newUserId,
       ...userData,
+      groups: []
     };
+    
+    // Add to mock data
+    mockUsers[newUserId] = newUser;
+    
+    return newUser;
+  } catch (error) {
+    console.error('Error creating user:', error);
+    
+    // Generate a new UUID if needed
+    const fallbackId = crypto.randomUUID();
+    
+    // Create a fallback user
+    const fallbackUser: User = {
+      id: fallbackId,
+      ...userData,
+      groups: []
+    };
+    
+    // Add to mock data
+    mockUsers[fallbackId] = fallbackUser;
+    
+    return fallbackUser;
   }
 };
